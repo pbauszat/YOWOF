@@ -1,22 +1,22 @@
 import torch
 import torch.nn as nn
 from .matcher import UniformMatcher
-from utils.box_ops import box_iou, generalized_box_iou, box_cxcywh_to_xyxy
-from utils.misc import Sigmoid_FocalLoss, AVA_FocalLoss
-from utils.vis_tools import vis_targets
-from utils.distributed_utils import get_world_size, is_dist_avail_and_initialized
 
+from ....utils.box_ops import box_iou, generalized_box_iou, box_cxcywh_to_xyxy
+from ....utils.misc import Sigmoid_FocalLoss, AVA_FocalLoss
+from ....utils.vis_tools import vis_targets
+from ....utils.distributed_utils import get_world_size, is_dist_avail_and_initialized
 
 
 class Criterion(object):
-    def __init__(self, 
-                 cfg, 
+    def __init__(self,
+                 cfg,
                  device,
                  img_size=224,
                  alpha=0.25,
                  gamma=2.0,
-                 loss_cls_weight=1.0, 
-                 loss_reg_weight=1.0, 
+                 loss_cls_weight=1.0,
+                 loss_reg_weight=1.0,
                  num_classes=80,
                  multi_hot=False):
         self.cfg = cfg
@@ -37,7 +37,6 @@ class Criterion(object):
             # self.cls_loss = Sigmoid_FocalLoss(alpha=alpha, gamma=gamma, reduction='none')
         else:
             self.cls_loss = Sigmoid_FocalLoss(alpha=alpha, gamma=gamma, reduction='none')
-
 
     def prepare_targets(self, cls_pred_shape, targets, indices, src_idx, ignore_idx, pos_ignore_idx):
         if self.multi_hot:
@@ -77,14 +76,12 @@ class Criterion(object):
 
         return gt_cls, foreground_idxs, num_foreground
 
-
     def loss_labels(self, cls_pred, tgt_labels, num_foreground):
         # class loss
         loss_labels = self.cls_loss(cls_pred, tgt_labels)
         loss_labels = loss_labels.sum() / num_foreground
 
         return loss_labels
-
 
     def loss_bboxes(self, pred_box, tgt_boxes, num_boxes):
         # giou
@@ -95,7 +92,6 @@ class Criterion(object):
 
         return loss_bboxes
 
-
     def __call__(self, outputs, targets):
         """
             outputs['cls_preds']: List[Tensor] -> [[B, M, C], ...]
@@ -104,7 +100,7 @@ class Criterion(object):
             targets: List[List] -> [List[B, N, 6], 
                                     ...,
                                     List[B, N, 6]],
-        """            
+        """
         box_pred = outputs['box_preds']
         cls_pred = outputs['cls_preds']
         anchor_boxes = outputs['anchors']
@@ -117,12 +113,12 @@ class Criterion(object):
             tgt['boxes'] = tgt['boxes'] * self.img_size
             rescale_tgt.append(tgt)
         targets = rescale_tgt
-        
+
         # Matcher for this frame
         indices = self.matcher(
-            pred_boxes = box_pred,
-            anchor_boxes = anchor_boxes,
-            targets = targets)
+            pred_boxes=box_pred,
+            anchor_boxes=anchor_boxes,
+            targets=targets)
 
         # convert cxcywh to x1y1x2y2
         anchor_boxes = box_cxcywh_to_xyxy(anchor_boxes)
@@ -135,16 +131,16 @@ class Criterion(object):
         for batch_index in range(batch_size):
             src_idx, tgt_idx = indices[batch_index]
             # iou between predbox and tgt box
-            iou, _ = box_iou(box_pred[batch_index, ...], 
-                                targets[batch_index]['boxes'].clone())
+            iou, _ = box_iou(box_pred[batch_index, ...],
+                             targets[batch_index]['boxes'].clone())
             if iou.numel() == 0:
                 max_iou = iou.new_full((iou.size(0),), 0)
             else:
                 max_iou = iou.max(dim=1)[0]
 
             # iou between anchorbox and tgt box
-            a_iou, _ = box_iou(anchor_boxes[batch_index], 
-                                targets[batch_index]['boxes'].clone())
+            a_iou, _ = box_iou(anchor_boxes[batch_index],
+                               targets[batch_index]['boxes'].clone())
             if a_iou.numel() == 0:
                 pos_iou = a_iou.new_full((0,), 0)
             else:
@@ -159,7 +155,7 @@ class Criterion(object):
 
         src_idx = torch.cat(
             [src + idx * anchor_boxes[0].shape[0] for idx, (src, _) in
-            enumerate(indices)])
+             enumerate(indices)])
 
         # [B, M, 4] -> [BM, 4]
         cls_pred = cls_pred.view(-1, self.num_classes)
@@ -170,13 +166,13 @@ class Criterion(object):
             foreground_idxs,
             num_foreground
         ) = self.prepare_targets(
-            cls_pred_shape=cls_pred.shape, 
-            targets=targets, 
-            indices=indices, 
-            src_idx=src_idx, 
+            cls_pred_shape=cls_pred.shape,
+            targets=targets,
+            indices=indices,
+            src_idx=src_idx,
             ignore_idx=ignore_idx,
             pos_ignore_idx=pos_ignore_idx
-            )
+        )
 
         # class loss
         if self.multi_hot:
@@ -194,7 +190,7 @@ class Criterion(object):
 
         # bbox loss
         tgt_boxes = torch.cat([t['boxes'][i]
-                                    for t, (_, i) in zip(targets, indices)], dim=0).to(self.device)
+                               for t, (_, i) in zip(targets, indices)], dim=0).to(self.device)
         tgt_boxes = tgt_boxes[~pos_ignore_idx]
         matched_pred_box = box_pred.reshape(-1, 4)[src_idx[~pos_ignore_idx]]
         loss_bboxes = self.loss_bboxes(matched_pred_box, tgt_boxes, num_foreground)
@@ -204,9 +200,9 @@ class Criterion(object):
                  self.loss_reg_weight * loss_bboxes
 
         loss_dict = dict(
-                loss_labels = loss_labels,
-                loss_bboxes = loss_bboxes,
-                losses = losses
+            loss_labels=loss_labels,
+            loss_bboxes=loss_bboxes,
+            losses=losses
         )
 
         return loss_dict

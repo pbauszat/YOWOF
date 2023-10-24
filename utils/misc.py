@@ -6,13 +6,13 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.utils.data import DataLoader, DistributedSampler
 
-from dataset.ucf_jhmdb import UCF_JHMDB_Dataset
-from dataset.ava import AVA_Dataset
-from dataset.ava_pose import AVA_Pose_Dataset
-from dataset.transforms import Augmentation, BaseTransform
+from ..dataset.ucf_jhmdb import UCF_JHMDB_Dataset
+from ..dataset.ava import AVA_Dataset
+from ..dataset.ava_pose import AVA_Pose_Dataset
+from ..dataset.transforms import Augmentation, BaseTransform
 
-from evaluator.ucf_jhmdb_evaluator import UCF_JHMDB_Evaluator
-from evaluator.ava_evaluator import AVA_Evaluator
+from ..evaluator.ucf_jhmdb_evaluator import UCF_JHMDB_Evaluator
+from ..evaluator.ava_evaluator import AVA_Evaluator
 
 
 def build_dataset(device, d_cfg, args, is_train=False):
@@ -28,12 +28,12 @@ def build_dataset(device, d_cfg, args, is_train=False):
         hue=d_cfg['hue'],
         saturation=d_cfg['saturation'],
         exposure=d_cfg['exposure']
-        )
+    )
     basetransform = BaseTransform(
         img_size=d_cfg['test_size'],
         pixel_mean=d_cfg['pixel_mean'],
         pixel_std=d_cfg['pixel_std'],
-        )
+    )
 
     # dataset
     if args.dataset in ['ucf24', 'jhmdb21']:
@@ -46,7 +46,7 @@ def build_dataset(device, d_cfg, args, is_train=False):
             is_train=is_train,
             len_clip=d_cfg['len_clip'],
             sampling_rate=d_cfg['sampling_rate']
-            )
+        )
         num_classes = dataset.num_classes
 
         # evaluator
@@ -86,7 +86,7 @@ def build_dataset(device, d_cfg, args, is_train=False):
             collate_fn=CollateFunc(),
             full_test_on_val=False,
             version='v2.1'
-            )
+        )
 
     elif args.dataset == 'ava_v2.2':
         # dataset
@@ -111,7 +111,7 @@ def build_dataset(device, d_cfg, args, is_train=False):
             collate_fn=CollateFunc(),
             full_test_on_val=False,
             version='v2.2'
-            )
+        )
 
     elif args.dataset == 'ava_pose':
         # dataset
@@ -136,7 +136,7 @@ def build_dataset(device, d_cfg, args, is_train=False):
             collate_fn=CollateFunc(),
             full_test_on_val=False,
             version='pose'
-            )
+        )
 
     else:
         print('unknow dataset !!')
@@ -167,22 +167,22 @@ def build_dataloader(args, dataset, batch_size, collate_fn=None, is_train=False)
     else:
         # test dataloader
         dataloader = torch.utils.data.DataLoader(
-            dataset=dataset, 
+            dataset=dataset,
             shuffle=False,
-            collate_fn=collate_fn, 
+            collate_fn=collate_fn,
             num_workers=args.num_workers,
             drop_last=False,
             pin_memory=True
-            )
-    
+        )
+
     return dataloader
-    
+
 
 def load_weight(model, path_to_ckpt=None):
     if path_to_ckpt is None:
         print('No trained weight ..')
         return model
-        
+
     checkpoint = torch.load(path_to_ckpt, map_location='cpu')
     # checkpoint state dict
     checkpoint_state_dict = checkpoint.pop("model")
@@ -215,19 +215,20 @@ class CollateFunc(object):
             key_frame_id = sample[0]
             video_clip = sample[1]
             key_target = sample[2]
-            
+
             batch_frame_id.append(key_frame_id)
             batch_video_clips.append(video_clip)
             batch_key_target.append(key_target)
 
         # List [B, T, 3, H, W] -> [B, T, 3, H, W]
         batch_video_clips = torch.stack(batch_video_clips)
-        
+
         return batch_frame_id, batch_video_clips, batch_key_target
 
 
 class AVA_FocalLoss(object):
     """ Focal loss for AVA"""
+
     def __init__(self, device, gamma, num_classes, reduction='none'):
         with open('config/ava_categories_ratio.json', 'r') as fb:
             self.class_ratio = json.load(fb)
@@ -238,11 +239,9 @@ class AVA_FocalLoss(object):
         self.class_weight = torch.zeros(self.num_classes).to(device)
         self._init_class_weight()
 
-
     def _init_class_weight(self):
-        for i in range(1, self.num_classes+1):
+        for i in range(1, self.num_classes + 1):
             self.class_weight[i - 1] = 1 - self.class_ratio[str(i)]
-
 
     def __call__(self, logits, targets):
         '''
@@ -280,12 +279,11 @@ class Sigmoid_FocalLoss(object):
         self.gamma = gamma
         self.reduction = reduction
 
-        
     def __call__(self, logits, targets):
         p = torch.sigmoid(logits)
-        ce_loss = F.binary_cross_entropy_with_logits(input=logits, 
-                                                        target=targets, 
-                                                        reduction="none")
+        ce_loss = F.binary_cross_entropy_with_logits(input=logits,
+                                                     target=targets,
+                                                     reduction="none")
         p_t = p * targets + (1.0 - p) * (1.0 - targets)
         loss = ce_loss * ((1.0 - p_t) ** self.gamma)
 
@@ -304,6 +302,7 @@ class Sigmoid_FocalLoss(object):
 
 class Softmax_FocalLoss(nn.Module):
     """ Focal loss for UCF24 & JHMDB21"""
+
     def __init__(self, num_classes, alpha=None, gamma=2.0, reduction='none'):
         super(Softmax_FocalLoss, self).__init__()
         if alpha is None:
@@ -316,7 +315,6 @@ class Softmax_FocalLoss(nn.Module):
         self.gamma = gamma
         self.num_classes = num_classes
         self.reduction = reduction
-
 
     def forward(self, inputs, targets):
         """
@@ -331,16 +329,16 @@ class Softmax_FocalLoss(nn.Module):
         class_mask = Variable(class_mask)
         ids = targets.view(-1, 1)
         class_mask.scatter_(1, ids, 1.)
-        
+
         self.alpha = self.alpha.to(inputs.device)
         alpha = self.alpha[ids.data.view(-1)]
-        
-        probs = (P*class_mask).sum(1).view(-1,1)
+
+        probs = (P * class_mask).sum(1).view(-1, 1)
 
         log_p = probs.log()
 
-        loss = -alpha * (torch.pow((1 - probs), self.gamma)) * log_p 
-        
+        loss = -alpha * (torch.pow((1 - probs), self.gamma)) * log_p
+
         if self.reduction == 'mean':
             loss = loss.mean()
 

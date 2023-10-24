@@ -5,9 +5,9 @@ from PIL import Image
 import numpy as np
 from scipy.io import loadmat
 
-from dataset.ucf_jhmdb import UCF_JHMDB_Dataset
-from utils.box_ops import rescale_bboxes
-from utils.box_ops import rescale_bboxes
+from ..dataset.ucf_jhmdb import UCF_JHMDB_Dataset
+from ..utils.box_ops import rescale_bboxes
+from ..utils.box_ops import rescale_bboxes
 
 from .cal_frame_mAP import evaluate_frameAP
 from .cal_video_mAP import evaluate_videoAP
@@ -53,7 +53,6 @@ class UCF_JHMDB_Evaluator(object):
             sampling_rate=1)
         self.num_classes = self.testset.num_classes
 
-
     @torch.no_grad()
     def evaluate_frame_map(self, model, epoch=1, show_pr_curve=False):
         print("Metric: Frame mAP")
@@ -79,7 +78,7 @@ class UCF_JHMDB_Evaluator(object):
                 model.initialization = True
 
             # prepare
-            video_clip = video_clip.unsqueeze(0).to(self.device) # [B, T, 3, H, W], B=1
+            video_clip = video_clip.unsqueeze(0).to(self.device)  # [B, T, 3, H, W], B=1
 
             with torch.no_grad():
                 # inference
@@ -94,12 +93,12 @@ class UCF_JHMDB_Evaluator(object):
 
                 if self.dataset == 'ucf24':
                     detection_path = os.path.join('results', 'ucf_detections', self.model_name, 'detections_' + str(epoch), frame_id)
-                    current_dir = os.path.join('results', 'ucf_detections',  self.model_name, 'detections_' + str(epoch))
+                    current_dir = os.path.join('results', 'ucf_detections', self.model_name, 'detections_' + str(epoch))
                     os.makedirs(current_dir, exist_ok=True)
 
                 else:
-                    detection_path = os.path.join('results', 'jhmdb_detections',  self.model_name, 'detections_' + str(epoch), frame_id)
-                    current_dir = os.path.join('results', 'jhmdb_detections',  self.model_name, 'detections_' + str(epoch))
+                    detection_path = os.path.join('results', 'jhmdb_detections', self.model_name, 'detections_' + str(epoch), frame_id)
+                    current_dir = os.path.join('results', 'jhmdb_detections', self.model_name, 'detections_' + str(epoch))
                     os.makedirs(current_dir, exist_ok=True)
 
                 with open(detection_path, 'w+') as f_detect:
@@ -112,7 +111,7 @@ class UCF_JHMDB_Evaluator(object):
 
                         f_detect.write(
                             str(cls_id) + ' ' + str(score) + ' ' \
-                                + str(x1) + ' ' + str(y1) + ' ' + str(x2) + ' ' + str(y2) + '\n')
+                            + str(x1) + ' ' + str(y1) + ' ' + str(x2) + ' ' + str(y2) + '\n')
 
                 if iter_i % 1000 == 0:
                     log_info = "[%d / %d]" % (iter_i, epoch_size)
@@ -121,12 +120,11 @@ class UCF_JHMDB_Evaluator(object):
 
         print('calculating Frame mAP ...')
         metric_list = evaluate_frameAP(self.gt_folder, current_dir, self.iou_thresh,
-                              self.save_path, self.dataset, show_pr_curve)
+                                       self.save_path, self.dataset, show_pr_curve)
         for metric in metric_list:
             print(metric)
 
         return current_dir
-
 
     @torch.no_grad()
     def evaluate_video_map(self, model, epoch=1):
@@ -150,17 +148,17 @@ class UCF_JHMDB_Evaluator(object):
                 n_tubes = len(gt_data[0][i][2][0])
                 v_annotation = {}
                 all_gt_boxes = []
-                for j in range(n_tubes):  
-                    gt_one_tube = [] 
+                for j in range(n_tubes):
+                    gt_one_tube = []
                     tube_start_frame = gt_data[0][i][2][0][j][1][0][0]
                     tube_end_frame = gt_data[0][i][2][0][j][0][0][0]
                     tube_class = gt_data[0][i][2][0][j][2][0][0]
                     tube_data = gt_data[0][i][2][0][j][3]
                     tube_length = tube_end_frame - tube_start_frame + 1
-                
+
                     for k in range(tube_length):
                         gt_boxes = []
-                        gt_boxes.append(int(tube_start_frame+k))
+                        gt_boxes.append(int(tube_start_frame + k))
                         gt_boxes.append(float(tube_data[k][0]))
                         gt_boxes.append(float(tube_data[k][1]))
                         gt_boxes.append(float(tube_data[k][0]) + float(tube_data[k][2]))
@@ -181,7 +179,7 @@ class UCF_JHMDB_Evaluator(object):
             line = line.rstrip()
             if i % 50 == 0:
                 print('Video: [%d / %d] - %s' % (i, len(lines), line))
-            
+
             # initalize model
             model.initialization = True
 
@@ -222,9 +220,9 @@ class UCF_JHMDB_Evaluator(object):
 
                     # load a frame
                     if self.dataset == 'ucf24':
-                        path_tmp = os.path.join(self.data_root, 'rgb-images', video_class, video_file ,'{:05d}.jpg'.format(img_id_temp))
+                        path_tmp = os.path.join(self.data_root, 'rgb-images', video_class, video_file, '{:05d}.jpg'.format(img_id_temp))
                     elif self.dataset == 'jhmdb21':
-                        path_tmp = os.path.join(self.data_root, 'rgb-images', video_class, video_file ,'{:05d}.png'.format(img_id_temp))
+                        path_tmp = os.path.join(self.data_root, 'rgb-images', video_class, video_file, '{:05d}.png'.format(img_id_temp))
                     frame = Image.open(path_tmp).convert('RGB')
                     ow, oh = frame.width, frame.height
 
@@ -237,7 +235,7 @@ class UCF_JHMDB_Evaluator(object):
                 orig_size = [ow, oh]  # width, height
 
                 # prepare
-                video_clip = video_clip.unsqueeze(0).to(self.device) # [B, T, 3, H, W], B=1
+                video_clip = video_clip.unsqueeze(0).to(self.device)  # [B, T, 3, H, W], B=1
 
                 with torch.no_grad():
                     # inference
@@ -253,7 +251,7 @@ class UCF_JHMDB_Evaluator(object):
                         c_scores = scores[inds]
                         # [n_box, 5]
                         boxes = np.concatenate([c_bboxes, c_scores[..., None]], axis=-1)
-                        img_annotation[cls_idx+1] = boxes
+                        img_annotation[cls_idx + 1] = boxes
                     detected_boxes[img_name] = img_annotation
 
         iou_list = [0.05, 0.1, 0.2, 0.3, 0.5, 0.75]

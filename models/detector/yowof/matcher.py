@@ -1,6 +1,7 @@
 import numpy as np
 import torch
-from utils.box_ops import box_xyxy_to_cxcywh
+
+from ....utils.box_ops import box_xyxy_to_cxcywh
 
 
 class UniformMatcher(object):
@@ -37,11 +38,11 @@ class UniformMatcher(object):
 
         # Compute the L1 cost between boxes
         # Note that we use anchors and predict boxes both
-        cost_bbox = torch.cdist(box_xyxy_to_cxcywh(out_bbox), 
-                                box_xyxy_to_cxcywh(tgt_bbox), 
+        cost_bbox = torch.cdist(box_xyxy_to_cxcywh(out_bbox),
+                                box_xyxy_to_cxcywh(tgt_bbox),
                                 p=1)
-        cost_bbox_anchors = torch.cdist(anchor_boxes, 
-                                        box_xyxy_to_cxcywh(tgt_bbox), 
+        cost_bbox_anchors = torch.cdist(anchor_boxes,
+                                        box_xyxy_to_cxcywh(tgt_bbox),
                                         p=1)
 
         # Final cost matrix: [B, M, N], M=num_queries, N=num_tgt
@@ -81,11 +82,11 @@ class UniformMatcher(object):
             img_idx_i = [
                 np.array(idx_ + idx1_)
                 for (idx_, idx1_) in zip(idx, idx1)
-            ] # 'i' is the index of queris
+            ]  # 'i' is the index of queris
             img_idx_j = [
                 np.array(list(range(len(idx_))) + list(range(len(idx1_))))
                 for (idx_, idx1_) in zip(idx, idx1)
-            ] # 'j' is the index of tgt
+            ]  # 'j' is the index of tgt
             all_indices_list[img_id] = [*zip(img_idx_i, img_idx_j)]
 
         # re-organize the positive indices
@@ -101,7 +102,5 @@ class UniformMatcher(object):
             all_idx_j = np.hstack(all_idx_j)
             all_indices.append((all_idx_i, all_idx_j))
 
-
-        return [(torch.as_tensor(i, dtype=torch.int64), 
+        return [(torch.as_tensor(i, dtype=torch.int64),
                  torch.as_tensor(j, dtype=torch.int64)) for i, j in all_indices]
-                 

@@ -5,8 +5,8 @@ from collections import defaultdict
 import torch
 import json
 
-from dataset.ava import AVA_Dataset
-from dataset.ava_pose import AVA_Pose_Dataset
+from ..dataset.ava import AVA_Dataset
+from ..dataset.ava_pose import AVA_Pose_Dataset
 
 from .ava_eval_helper import (
     run_evaluation,
@@ -15,7 +15,6 @@ from .ava_eval_helper import (
     read_labelmap,
     write_results
 )
-
 
 
 class AVA_Evaluator(object):
@@ -75,15 +74,14 @@ class AVA_Evaluator(object):
 
         # dataloader
         self.testloader = torch.utils.data.DataLoader(
-            dataset=self.testset, 
+            dataset=self.testset,
             batch_size=8,
             shuffle=False,
-            collate_fn=collate_fn, 
+            collate_fn=collate_fn,
             num_workers=4,
             drop_last=False,
             pin_memory=True
-            )
-
+        )
 
     def get_ava_mini_groundtruth(self, full_groundtruth):
         """
@@ -101,7 +99,6 @@ class AVA_Evaluator(object):
                 if int(key.split(",")[1]) % 4 == 0:
                     ret[i][key] = full_groundtruth[i][key]
         return ret
-
 
     def load_image_lists(self, frames_dir, frame_list, is_train):
         """
@@ -154,10 +151,8 @@ class AVA_Evaluator(object):
 
         return image_paths, video_idx_to_name
 
-
     def update_stats(self, preds):
         self.all_preds.extend(preds)
-
 
     def get_ava_eval_data(self):
         out_scores = defaultdict(list)
@@ -188,7 +183,6 @@ class AVA_Evaluator(object):
 
         return out_boxes, out_labels, out_scores
 
-
     def calculate_mAP(self, epoch):
         eval_start = time.time()
         detections = self.get_ava_eval_data()
@@ -210,7 +204,6 @@ class AVA_Evaluator(object):
         print("AVA eval done in %f seconds." % (time.time() - eval_start))
 
         return results["PascalBoxes_Precision/mAP@0.5IOU"]
-
 
     def evaluate_frame_map_stream(self, model, epoch=1):
         model.eval()
@@ -237,7 +230,7 @@ class AVA_Evaluator(object):
                 model.initialization = True
 
             # prepare
-            video_clip = video_clip.unsqueeze(0).to(self.device) # [B, T, 3, H, W], B=1
+            video_clip = video_clip.unsqueeze(0).to(self.device)  # [B, T, 3, H, W], B=1
 
             with torch.no_grad():
                 # inference
@@ -266,7 +259,6 @@ class AVA_Evaluator(object):
         self.all_preds = []
 
         return mAP
-
 
     def evaluate_frame_map(self, model, epoch=1):
         model.eval()
@@ -298,7 +290,7 @@ class AVA_Evaluator(object):
                         x1, y1, x2, y2 = bbox[:4].tolist()
                         cls_out = bbox[4:]
 
-                        preds_list.append([[x1,y1,x2,y2], cls_out, [video_idx, sec]])
+                        preds_list.append([[x1, y1, x2, y2], cls_out, [video_idx, sec]])
 
             self.update_stats(preds_list)
             if iter_i % 100 == 0:
