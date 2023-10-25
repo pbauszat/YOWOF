@@ -7,12 +7,12 @@ import torch
 import imageio
 from PIL import Image
 
-from dataset.transforms import BaseTransform
-from utils.misc import load_weight
-from utils.box_ops import rescale_bboxes
-from utils.vis_tools import vis_detection
-from config import build_dataset_config, build_model_config
-from models.detector import build_model
+from packages.dataset.transforms import BaseTransform
+from packages.utils.misc import load_weight
+from packages.utils.box_ops import rescale_bboxes
+from packages.utils.vis_tools import vis_detection
+from packages.config import build_dataset_config, build_model_config
+from packages.models.detector import build_model
 
 
 
